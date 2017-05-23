@@ -14,13 +14,13 @@ $sudo apt-get install bc
 
 Step 2: Assign multiple secondary private IPv4 addresses to the network interface of the iperf3 host. To run 10 TCP streams, we need 10 IPv4 addresses.
 
-•	Open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
-•	In the navigation pane, choose Network Interfaces, and then select the network interface attached to the instance.
-•	Choose Actions, Manage IP Addresses.
-•	Under IPv4 Addresses, choose Assign new IP.
-•	Enter a specific IPv4 address that's within the subnet range for the instance, or leave the field blank to let Amazon select an IP address for you.
-•	(Optional) Choose Allow reassignment to allow the secondary private IP address to be reassigned if it is already assigned to another network interface.
-•	Choose Yes, Update.
+â€¢	Open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+â€¢	In the navigation pane, choose Network Interfaces, and then select the network interface attached to the instance.
+â€¢	Choose Actions, Manage IP Addresses.
+â€¢	Under IPv4 Addresses, choose Assign new IP.
+â€¢	Enter a specific IPv4 address that's within the subnet range for the instance, or leave the field blank to let Amazon select an IP address for you.
+â€¢	(Optional) Choose Allow reassignment to allow the secondary private IP address to be reassigned if it is already assigned to another network interface.
+â€¢	Choose Yes, Update.
 
 
 Step 3: Issue the following commands at the iperf3 host to configure the subinterfaces. 10.10.0.2xx/16 are just the sample IP addresses. Please replace them 
@@ -172,6 +172,6 @@ Note:
 - Parameter "report" means that we start to log the iperf3 client output at local report-* files
 
 
-Step 9: After iperf3 test finishes in Step 9, please run the script copied in Step 6. The script output is the sum of the throughputs for all 10 iperf3 streams.
+Step 9: After iperf3 test finishes in Step 8, please run the script copied in Step 6. The script output is the sum of the throughputs for all 10 iperf3 streams.
 ./tp-test
 
