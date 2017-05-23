@@ -1,0 +1,177 @@
+Step 1: Install iperf3 & bc on Debian/Ubuntu hosts, run commands similar to the following:
+
+$ sudo apt-get update
+$ sudo apt-get upgrade
+$ sudo apt-get install git gcc make
+$ git clone https://github.com/esnet/iperf
+$ cd iperf
+$ ./configure
+$ sudo make
+$ sudo make install
+$ sudo ldconfig
+$sudo apt-get install bc
+
+
+Step 2: Assign multiple secondary private IPv4 addresses to the network interface of the iperf3 host. To run 10 TCP streams, we need 10 IPv4 addresses.
+
+•	Open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+•	In the navigation pane, choose Network Interfaces, and then select the network interface attached to the instance.
+•	Choose Actions, Manage IP Addresses.
+•	Under IPv4 Addresses, choose Assign new IP.
+•	Enter a specific IPv4 address that's within the subnet range for the instance, or leave the field blank to let Amazon select an IP address for you.
+•	(Optional) Choose Allow reassignment to allow the secondary private IP address to be reassigned if it is already assigned to another network interface.
+•	Choose Yes, Update.
+
+
+Step 3: Issue the following commands at the iperf3 host to configure the subinterfaces. 10.10.0.2xx/16 are just the sample IP addresses. Please replace them 
+with the IPv4 addresses entered in Step2.
+
+ifconfig ens3:1 10.10.0.201/16 up
+ifconfig ens3:2 10.10.0.202/16 up
+ifconfig ens3:3 10.10.0.203/16 up
+ifconfig ens3:4 10.10.0.204/16 up
+ifconfig ens3:5 10.10.0.205/16 up
+ifconfig ens3:6 10.10.0.206/16 up
+ifconfig ens3:7 10.10.0.207/16 up
+ifconfig ens3:8 10.10.0.208/16 up
+ifconfig ens3:9 10.10.0.209/16 up
+ifconfig ens3:10 10.10.0.210/16 up
+
+
+Step 4: Copy the following script ("iperf3-parallel-servers") to the iperf3 host:
+
+#!/bin/bash
+# Run multiple parallel instances of iperf servers
+
+# Assumes the port numbers used by the servers start at 5001 and increase
+# e.g. 5001, 5002, 5003, ...
+# If you want something different, then change the following parameter value
+# to be: firstport - 1
+base_port=5200
+
+# Command line input: number of servers
+# E.g. 5
+num_servers=$1
+shift
+
+# Command line input: base report file name
+# E.g. report
+report_base=$1
+shift
+
+# Optional command line input: other iperf options
+# E.g. -u
+iperf_options="$*"
+
+# Run iperf multiple times
+for i in `seq 1 $num_servers`; do
+
+	# Set server port
+	server_port=$(($base_port+$i));
+
+	# Report file includes server port
+	report_file=${report_base}-${server_port}.txt
+
+	# Run iperf
+	iperf3 -s -p $server_port $iperf_options &> $report_file &
+
+done
+
+
+Step 5: Copy the following script ("iperf3-parallel-clients") to the iperf3 host:
+
+#!/bin/bash
+# Run multiple parallel instances of iperf client
+# Assumes iperf servers have been started, e.g.
+# iperf -s -p PORT
+# Examples:
+# Run 5 clients for 60 seconds to server 1.1.1.1
+#    iperf-multiple-clients 1.1.1.1 5 60 report
+# 5 files will be created, report-1.1.1.1-5001-60.txt, ...
+#
+# Run 7 clients for 20 seconds with UDP 
+#    iperf-multipleclients 1.1.1.1 7 20 report-udp -u -b 10M
+
+# Assumes the port numbers used by the servers start at 5001 and increase
+# e.g. 5001, 5002, 5003, ...
+# If you want something different, then change the following parameter value
+# to be: firstport - 1
+base_port=5200
+base_src_port=15200
+
+# Command line input: server IP address
+# E.g. 1.1.1.1
+server_ip=$1
+shift
+
+# Command line input: number of clients to start
+# E.g. 5
+num_clients=$1
+shift
+
+# Command line input: test duration
+# E.g. 60
+test_duration=$1
+shift
+
+# Client ip to bind
+client_ip=$1
+shift
+
+# Command line input: base report file name
+# E.g. report
+report_base=$1
+shift
+
+# Optional command line input: other iperf options
+# E.g. -u -b 10M
+iperf_options="$*"
+
+# Run iperf multiple times
+for i in `seq 1 $num_clients`; do
+
+	# Set server port
+	server_port=$(($base_port+$i));
+
+	# Set client port
+	client_port=$(($base_src_port+$i));
+
+	# Report file includes server ip, server port and test duration
+	report_file=${report_base}-${server_ip}-${client_port}-${server_port}-${test_duration}.txt
+
+	# Run iperf
+	iperf3 -c $server_ip -p $server_port -f m -t $test_duration -B $client_ip --cport $client_port $iperf_options &> $report_file &
+
+done
+
+
+Step 6: Copy the following script ("tp-test") to the iperf3 host. Put "tp-test" at the same directory as "iperf3-parallel-clients"
+
+#!/bin/bash
+grep sender report* > temp.csv
+awk -F " " '{print $7}' temp.csv > output.txt
+paste -sd+ output.txt | bc
+
+
+Step 7: Start iperf3 servers at all iperf3 hosts with the following command:
+./iperf3-parallel-servers 10 report
+
+Note: 
+-  Parameter "10" means that we start 10 iperf3 server daemons with base port staring from 5200
+- Parameter "report" means that we start to log the iperf3 server output at local report-* files 
+
+
+Step 8: Start iperf3 clients at all iperf3 hosts with the following command:
+./iperf3-parallel-clients 10.10.0.210 10 120 10.11.0.201 report
+
+Note:
+- Please replace "10.10.0.210" with the private IP address of eth0 port at iperf3 server
+- Parameter "10" means that we start 10 iperf3 clients
+- Parameter "120" means that iperf3 test will last for 120 seconds
+- Please replace "10.11.0.201" with the starting IP address you used in Step 3
+- Parameter "report" means that we start to log the iperf3 client output at local report-* files
+
+
+Step 9: After iperf3 test finishes in Step 9, please run the script copied in Step 6. The script output is the sum of the throughputs for all 10 iperf3 streams.
+./tp-test
+
